@@ -76,7 +76,7 @@ function buildTSP(inst::Instance)
     @objective(model, Min, sum(sum(x[i,j]*(inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx])+y[i,j]*(inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx]*inst.speed_ratio)-z[i,j]*(inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx]*inst.speed_ratio) for i=1:n) for j in 1:n));
 
 
-    # contraintes de depot entrée sortie 1fois
+    # contraintes de depot entrée sortie 1fois et flots
     #@constraint(model,[j = JnonpL], sum( x[i,j] for i in 1:n j!=i) <= 1);
     #@constraint(model,[i = JnonpL], sum( x[i,j] for j in 1:n j!=i) <= 1);
     @constraint(model,[i = 1:n,j = Js,i!=j], x[i,j] == 0);
@@ -90,28 +90,39 @@ function buildTSP(inst::Instance)
     @constraint(model,[i = 1:n], sum(x[i,j] for j in 1:n) == sum(x[j,i] for j in 1:n) );
     @constraint(model,[i = 1:n], sum(y[i,j] for j in 1:n) == sum(y[j,i] for j in 1:n) );
     @constraint(model,[i = Jnonp], sum(z[i,j] for j in 1:n) == sum(z[j,i] for j in 1:n));
+    @constraint(model, Cs[1]==Q)
+    @constraint(model, qL[n]<=T)
+    @constraint(model, qS[n]<=T)
     #@constraint(model,[i = Jl], sum(x[i,j] for j in 1:n)<=1)
     #@constraint(model,[i = 1:n], sum(y[i,j] for j in 1:n)<=1)
 
     #@constraint(model,[j = Jnonp], sum(x[i,j] for i in 1:n)+sum(y[i,j] for i in 1:n)-sum(z[i,j] for i in 1:n)   == 1);
-
+    #les clients livrables uniquement par le petit vehicule
     @constraint(model,[j = Js], sum( y[i,j] for i in 1:n j!=i) == 1);
 
     #@constraint(model,[i = Js], sum( y[i,j] for j in 1:n j!=i) == 1);
-
+    #def de z
     @constraint(model,[i = 1:n,j = 1:n,i!=j], z[i,j] <= (x[i,j]+y[i,j])/2);
-
+    #def de rechargement
     @constraint(model,[i = 1:n], Re[i] <= 1 - (qL[i]-qS[i])/T);
     ## demande de i vers j pour yij
     @constraint(model,[i=1:n,j = 1:n], Cs[j] <= Cs[i]-inst.nodes[j].demand+Q*(1-y[i,j]));
+
     ## ravitaillement des yij
     @constraint(model,[i=1:n,j = Jp], Cs[j] >= Q*Re[j]);
     @constraint(model,[j = 1:n],  qL[j]>=inst.nodes[j].TW_min );
     @constraint(model,[j = n],  qL[j]<=tmp_max );
 
-    @constraint(model,[j = 1:n,i = 1:n,i!=j],  qL[j]+T*(1-x[i,j])>=qL[i]+inst.service_duration+inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx] );
+    #time windows
+    #@constraint(model,[j = 1:n,i = 1:n,i!=j],  qL[j]+T*(1-x[i,j])>=qL[i]+inst.service_duration+inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx] );
 
+    @constraint(model,[j = 1:n,i = 1:n,i!=j],  qL[j]+T*(1-x[i,j])>=qL[i]+inst.service_duration+inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx] );
     @constraint(model,[j = 1:n,i = 1:n,i!=j],  qS[j]+T*(1-y[i,j])>=qS[i]+inst.service_duration+inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx] );
+    @constraint(model,[j = 1:n,i = 1:n,i!=j],  qL[j]+T*(1-x[i,j])>=inst.service_duration+inst.nodes[j].TW_min)
+    @constraint(model,[j = 1:n,i = 1:n,i!=j],  qS[j]+T*(1-y[i,j])>=inst.service_duration+inst.nodes[j].TW_min)
+    @constraint(model,[j = 1:n,i = 1:n,i!=j],  qL[j]<=T*(1-x[i,j])+inst.tw_width+inst.nodes[j].TW_min)
+    @constraint(model,[j = 1:n,i = 1:n,i!=j],  qS[j]<=T*(1-y[i,j])+inst.tw_width+inst.nodes[j].TW_min)
+
 
     optimize!(model)
 
@@ -126,8 +137,6 @@ end # end buildTSP
 # Main program starting here
 
 # PARSE iNstance, parameters and distanceMatrix
-instdir = "..\\instances2019\\"
-outdir = "..\\output\\"
 instNames= ["C1-2-8.txt","C2-2-8.txt","C1-3-10.txt","C1-3-12.txt","C2-3-10.txt","C2-3-12.txt",
       "R1-2-8.txt","R2-2-8.txt","R1-3-10.txt","R1-3-12.txt","R2-3-10.txt","R2-3-12.txt"]
 
