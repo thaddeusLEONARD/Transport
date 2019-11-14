@@ -143,12 +143,14 @@ function buildTSP(inst::Instance)
     @constraint(model,[i=1:n,j = Jp], Cs[j] >= Q*Re[j]);
 
     #time windows
+    #@constraint(model,[j = 1:n,i = 1:n,i!=j],  qL[j]+T*(1-x[i,j])>=qL[i]+inst.service_duration+inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx] );
+
     @constraint(model,[j = 1:n,i = 1:n,i!=j],  qL[j]+T*(1-x[i,j])>=qL[i]+inst.service_duration+inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx] );
-    @constraint(model,[j = 1:n,i = 1:n,i!=j],  qS[j]+T*(1-y[i,j])>=qS[i]+inst.service_duration+inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx]);
-    #=@constraint(model,[i = 1:n],  qL[i]>=inst.service_duration+inst.nodes[i].TW_min)
-    @constraint(model,[i = 1:n],  qS[i]>=inst.service_duration+inst.nodes[i].TW_min)
-    @constraint(model,[i = 1:n],  qL[i]<=inst.nodes[i].TW_max)
-    @constraint(model,[i = 1:n],  qS[i]<=inst.nodes[i].TW_max)=#
+    @constraint(model,[j = 1:n,i = 1:n,i!=j],  qS[j]+T*(1-y[i,j])>=qS[i]+inst.service_duration+inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx] );
+    @constraint(model,[j = 1:n,i = 1:n,i!=j],  qL[j]+T*(1-x[i,j])>=inst.service_duration+inst.nodes[j].TW_min)
+    @constraint(model,[j = 1:n,i = 1:n,i!=j],  qS[j]+T*(1-y[i,j])>=inst.service_duration+inst.nodes[j].TW_min)
+    @constraint(model,[j = 1:n,i = 1:n,i!=j],  qL[j]<=T*(1-x[i,j])+inst.tw_width+inst.nodes[j].TW_min)
+    @constraint(model,[j = 1:n,i = 1:n,i!=j],  qS[j]<=T*(1-y[i,j])+inst.tw_width+inst.nodes[j].TW_min)
 
 
     optimize!(model)
