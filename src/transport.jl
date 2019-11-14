@@ -61,6 +61,25 @@ function get_ensemble(inst::Instance)
     return Jl,Js,Jp,Jnonp,Jnonp2,JnonpL,J
 end
 
+function get_parking(inst::Instance,Jp,a)
+    n = size(inst.nodes)[1]
+
+    Jpp = [[] for i in 1:a]
+    tmpii=1
+    i=Jp[1]
+    while i < Jp[length(Jp)]
+        println(i)
+        tmpi=i
+        while tmpi<= inst.nodes[i].vertex_idx==inst.nodes[tmpi].vertex_idx
+            push!(Jpp[tmpii],tmpi)
+            tmpi+=1
+        end
+        i=tmpi
+        tmpii+=1
+    end
+    return Jpp
+end
+
 function get_max(inst::Instance)
     n = size(inst.nodes)[1]
     tmp_max = 0
@@ -82,16 +101,16 @@ end
 # Output:
 #   m       JuMP model
 
-function buildTSP(inst::Instance)
+function buildTSP(inst::Instance,a)
     model = Model(with_optimizer(Cbc.Optimizer, logLevel=1))
     #model = Model(with_optimizer(Gurobi.Optimizer, Presolve=0, OutputFlag=0))
     n = size(inst.nodes)[1]
     T = inst.time_horizon
     tmp_max =get_max(inst)
     Q = inst.SV_cap
-    Jp1 = [2,3,4]
-    Jp2 = [5,6,7]
+
     Jl,Js,Jp , Jnonp,Jnonp2,JnonpL, J= get_ensemble(inst)
+    Jpp    =get_parking(inst,Jp,a)
     @variable(model, x[1:n,1:n] ,Bin);
     @variable(model, y[1:n,1:n] ,Bin);
     @variable(model, z[1:n,1:n] ,Bin);
@@ -117,8 +136,6 @@ function buildTSP(inst::Instance)
     ## on peut pas aller sur soi meme
     @constraint(model,[i = 1:n], x[i,i] == 0);
     @constraint(model,[i = 1:n], y[i,i] == 0);
-    @constraint(model,[i = Jp1,j = Jp1], y[i,j] == 0);
-    @constraint(model,[i = Jp1,j = Jp1], x[i,j] == 0);
     # on sort un fois de 1 et on rentre un fois dans n
     @constraint(model, sum(x[1,j] for j in J) ==1 );
     @constraint(model, sum(y[1,j] for j in J) ==1 );
@@ -133,22 +150,19 @@ function buildTSP(inst::Instance)
     @constraint(model, sum(x[j,1] for j in 1:n-1) ==0 );
     @constraint(model, sum(y[j,1] for j in 1:n-1) ==0 );
 
-    for i in Jp1
-        #=@constraint(model,[i2 in Jp1; i<i2], sum(x[i,j] for j in 1:n) >= sum(x[i2,j] for  j in 1:n) );
-        @constraint(model,[i2 in Jp1; i<i2], sum(y[i,j] for j in 1:n) >= sum(y[i2,j] for  j in 1:n) );
-        @constraint(model,[i2 in Jp1; i<i2], sum(x[j,i] for j in 1:n) >= sum(x[j,i2] for  j in 1:n) );
-        @constraint(model,[i2 in Jp1; i<i2], sum(y[j,i] for j in 1:n) >= sum(y[j,i2] for  j in 1:n) );=#
-        @constraint(model,[i2 in Jp1; i<i2],qL[i]+inst.service_duration>=qL[i2]);
-        @constraint(model,[i2 in Jp1; i<i2],qS[i]+inst.service_duration>=qS[i2]);
+    for jpp in Jpp
+        @constraint(model,[i = jpp,j = jpp], y[i,j] == 0);
+        @constraint(model,[i = jpp,j = jpp], x[i,j] == 0);
+        for i in jpp
+            #=@constraint(model,[i2 in Jp1; i<i2], sum(x[i,j] for j in 1:n) >= sum(x[i2,j] for  j in 1:n) );
+            @constraint(model,[i2 in Jp1; i<i2], sum(y[i,j] for j in 1:n) >= sum(y[i2,j] for  j in 1:n) );
+            @constraint(model,[i2 in Jp1; i<i2], sum(x[j,i] for j in 1:n) >= sum(x[j,i2] for  j in 1:n) );
+            @constraint(model,[i2 in Jp1; i<i2], sum(y[j,i] for j in 1:n) >= sum(y[j,i2] for  j in 1:n) );=#
+            @constraint(model,[i2 in jpp; i<i2],qL[i]>=qL[i2]);
+            @constraint(model,[i2 in jpp; i<i2],qS[i]>=qS[i2]);
+        end
     end
-    for i in Jp2
-        #=@constraint(model,[i2 in Jp1; i<i2], sum(x[i,j] for j in 1:n) >= sum(x[i2,j] for  j in 1:n) );
-        @constraint(model,[i2 in Jp1; i<i2], sum(y[i,j] for j in 1:n) >= sum(y[i2,j] for  j in 1:n) );
-        @constraint(model,[i2 in Jp1; i<i2], sum(x[j,i] for j in 1:n) >= sum(x[j,i2] for  j in 1:n) );
-        @constraint(model,[i2 in Jp1; i<i2], sum(y[j,i] for j in 1:n) >= sum(y[j,i2] for  j in 1:n) );=#
-        @constraint(model,[i2 in Jp2; i<i2],qL[i]+inst.service_duration>=qL[i2]);
-        @constraint(model,[i2 in Jp2; i<i2],qS[i]+inst.service_duration>=qS[i2]);
-    end
+
 
     # pour tout i,j in J on rentre autant de fois dans un noeud qu'on en sort
     @constraint(model,[i = J], sum(x[i,j] for j in 1:n) == sum(x[j,i] for j in 1:n) );
@@ -256,10 +270,9 @@ function main()
     instf =string(instdir,instNames[1])
     #instf =string(instdir,"instanceNantes.txt")
     matf =string(instdir,"distancematrix98.txt")
+    inst,a = parseInstance(paramf,instf,matf)
 
-    inst = parseInstance(paramf,instf,matf)
-
-    @time  cyclex,cycley = buildTSP(inst)
+    @time  cyclex,cycley = buildTSP(inst,a)
     println(cyclex)
     println(cycley)
     # saving some results to be loaded somewhere else:

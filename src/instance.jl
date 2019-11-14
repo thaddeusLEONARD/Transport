@@ -54,9 +54,32 @@ function parseInstance(paramf,instancef,distmatf)
     push!(nodes, nodes[D[1]])
     push!(D, length(nodes))
 
+
+    tmpi = 1
+    tmp_capa = 0
+    for node in nodes
+        if node.vertex_type!="S"
+            tmp_capa+=node.demand
+        end
+    end
+    a =ceil(tmp_capa/SV_cap)
+    a = a+1 ## le nombre de fois que je met chaque parking
+    tmp_nodes = deepcopy(nodes)
+    for node in tmp_nodes
+        if node.vertex_type=="P"
+            tmpp=[]
+            for i in 1:a
+                push!(tmpp,node)
+            end
+            splice!(nodes,tmpi:tmpi,tmpp)
+            tmpi+=Int(a)
+        end
+        tmpi+=1
+    end
+
     # read the distance matrix
     distanceMatrix = open(distmatf) do f ; readdlm(f) ; end
     # enforce the triangular inequality in the distance matrix
 
-    return Instance(SV_cap, speed_ratio, time_horizon, tw_width, service_duration, distanceMatrix, nodes, D, P, S, LS)
+    return Instance(SV_cap, speed_ratio, time_horizon, tw_width, service_duration, distanceMatrix, nodes, D, P, S, LS),a
 end
