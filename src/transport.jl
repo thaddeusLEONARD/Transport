@@ -68,7 +68,6 @@ function get_parking(inst::Instance,Jp,a)
     tmpii=1
     i=Jp[1]
     while i < Jp[length(Jp)]
-        println(i)
         tmpi=i
         while tmpi<= inst.nodes[i].vertex_idx==inst.nodes[tmpi].vertex_idx
             push!(Jpp[tmpii],tmpi)
@@ -111,6 +110,7 @@ function buildTSP(inst::Instance,a)
 
     Jl,Js,Jp , Jnonp,Jnonp2,JnonpL, J= get_ensemble(inst)
     Jpp    =get_parking(inst,Jp,a)
+
     @variable(model, x[1:n,1:n] ,Bin);
     @variable(model, y[1:n,1:n] ,Bin);
     @variable(model, z[1:n,1:n] ,Bin);
@@ -158,8 +158,8 @@ function buildTSP(inst::Instance,a)
             @constraint(model,[i2 in Jp1; i<i2], sum(y[i,j] for j in 1:n) >= sum(y[i2,j] for  j in 1:n) );
             @constraint(model,[i2 in Jp1; i<i2], sum(x[j,i] for j in 1:n) >= sum(x[j,i2] for  j in 1:n) );
             @constraint(model,[i2 in Jp1; i<i2], sum(y[j,i] for j in 1:n) >= sum(y[j,i2] for  j in 1:n) );=#
-            @constraint(model,[i2 in jpp; i<i2],qL[i]>=qL[i2]);
-            @constraint(model,[i2 in jpp; i<i2],qS[i]>=qS[i2]);
+            @constraint(model,[i2 in jpp; i<i2],qL[i]-inst.service_duration>=qL[i2]);
+            @constraint(model,[i2 in jpp; i<i2],qS[i]-inst.service_duration>=qS[i2]);
         end
     end
 
@@ -208,7 +208,7 @@ function buildTSP(inst::Instance,a)
     @constraint(model,[j = 1:n],  qS[j]<=inst.nodes[j].TW_max)
 
 
-    optimize!(model)
+    #optimize!(model)
     #=
     x_val = JuMP.value.(x)
     for i=1:n

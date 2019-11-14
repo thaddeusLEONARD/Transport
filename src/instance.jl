@@ -55,7 +55,7 @@ function parseInstance(paramf,instancef,distmatf)
     push!(D, length(nodes))
 
 
-    tmpi = 1
+    tmpi = 2
     tmp_capa = 0
     for node in nodes
         if node.vertex_type!="S"
@@ -71,10 +71,12 @@ function parseInstance(paramf,instancef,distmatf)
             for i in 1:a
                 push!(tmpp,node)
             end
+            println(tmpp)
+            println(tmpi)
             splice!(nodes,tmpi:tmpi,tmpp)
             tmpi+=Int(a)
         end
-        tmpi+=1
+        #tmpi+=1
     end
 
     # read the distance matrix
