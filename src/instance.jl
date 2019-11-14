@@ -54,12 +54,13 @@ function parseInstance(paramf,instancef,distmatf)
     push!(nodes, nodes[D[1]])
     push!(D, length(nodes))
 
-
+    tmp_park =0
     tmpi = 2
     tmp_capa = 0
     for node in nodes
         if node.vertex_type!="S"
             tmp_capa+=node.demand
+
         end
     end
     a =ceil(tmp_capa/SV_cap)
@@ -67,6 +68,7 @@ function parseInstance(paramf,instancef,distmatf)
     tmp_nodes = deepcopy(nodes)
     for node in tmp_nodes
         if node.vertex_type=="P"
+            tmp_park+=1
             tmpp=[]
             for i in 1:a
                 push!(tmpp,node)
@@ -83,5 +85,5 @@ function parseInstance(paramf,instancef,distmatf)
     distanceMatrix = open(distmatf) do f ; readdlm(f) ; end
     # enforce the triangular inequality in the distance matrix
 
-    return Instance(SV_cap, speed_ratio, time_horizon, tw_width, service_duration, distanceMatrix, nodes, D, P, S, LS),a
+    return Instance(SV_cap, speed_ratio, time_horizon, tw_width, service_duration, distanceMatrix, nodes, D, P, S, LS),tmp_park
 end

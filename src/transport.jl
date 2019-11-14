@@ -69,6 +69,8 @@ function get_parking(inst::Instance,Jp,a)
     i=Jp[1]
     while i < Jp[length(Jp)]
         tmpi=i
+        println(tmpii)
+        println(Jpp)
         while tmpi<= inst.nodes[i].vertex_idx==inst.nodes[tmpi].vertex_idx
             push!(Jpp[tmpii],tmpi)
             tmpi+=1
@@ -110,7 +112,7 @@ function buildTSP(inst::Instance,a)
 
     Jl,Js,Jp , Jnonp,Jnonp2,JnonpL, J= get_ensemble(inst)
     Jpp    =get_parking(inst,Jp,a)
-
+        println(Jpp)
     @variable(model, x[1:n,1:n] ,Bin);
     @variable(model, y[1:n,1:n] ,Bin);
     @variable(model, z[1:n,1:n] ,Bin);
@@ -208,7 +210,7 @@ function buildTSP(inst::Instance,a)
     @constraint(model,[j = 1:n],  qS[j]<=inst.nodes[j].TW_max)
 
 
-    #optimize!(model)
+    @time optimize!(model)
     #=
     x_val = JuMP.value.(x)
     for i=1:n
@@ -267,12 +269,13 @@ function main()
           "R1-2-8.txt","R2-2-8.txt","R1-3-10.txt","R1-3-12.txt","R2-3-10.txt","R2-3-12.txt"]
 
     paramf = string(instdir,"parameters.txt")
-    instf =string(instdir,instNames[1])
+    instf =string(instdir,instNames[12])
     #instf =string(instdir,"instanceNantes.txt")
     matf =string(instdir,"distancematrix98.txt")
     inst,a = parseInstance(paramf,instf,matf)
 
     @time  cyclex,cycley = buildTSP(inst,a)
+    println(a)
     println(cyclex)
     println(cycley)
     # saving some results to be loaded somewhere else:
