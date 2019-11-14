@@ -1,6 +1,6 @@
 # Using CBC https://github.com/JuliaOpt/Cbc.jl
 using Cbc
-# Using Gurobi
+#using Gurobi
 using JuMP,JSON
 #using GLPKMathProgInterface
 #using GLPK
@@ -89,9 +89,9 @@ function buildTSP(inst::Instance)
     T = inst.time_horizon
     tmp_max =get_max(inst)
     Q = inst.SV_cap
-
+    Jp1 = [2,3,4]
+    Jp2 = [5,6,7]
     Jl,Js,Jp , Jnonp,Jnonp2,JnonpL, J= get_ensemble(inst)
-    println(J)
     @variable(model, x[1:n,1:n] ,Bin);
     @variable(model, y[1:n,1:n] ,Bin);
     @variable(model, z[1:n,1:n] ,Bin);
@@ -107,9 +107,7 @@ function buildTSP(inst::Instance)
 
 
     # contraintes de depot entrée sortie 1fois et flots
-    #@constraint(model,[j = JnonpL], sum( x[i,j] for i in 1:n j!=i) <= 1);
-    #@constraint(model,[i = JnonpL], sum( x[i,j] for j in 1:n j!=i) <= 1);
-    @constraint(model, Cs[1]==Q)
+    #@constraint(model, Cs[1]==Q)
     @constraint(model, qL[n]<=T)
     @constraint(model, qS[n]<=T)
 
@@ -117,9 +115,10 @@ function buildTSP(inst::Instance)
     @constraint(model,[i = 1:n,j = Js,i!=j], x[i,j] == 0);
 
     ## on peut pas aller sur soi meme
-    #@constraint(model,[i = 1:n], x[i,i] == 0);
-    #@constraint(model,[i = 1:n], y[i,i] == 0);
-
+    @constraint(model,[i = 1:n], x[i,i] == 0);
+    @constraint(model,[i = 1:n], y[i,i] == 0);
+    @constraint(model,[i = Jp1,j = Jp1], y[i,j] == 0);
+    @constraint(model,[i = Jp1,j = Jp1], x[i,j] == 0);
     # on sort un fois de 1 et on rentre un fois dans n
     @constraint(model, sum(x[1,j] for j in J) ==1 );
     @constraint(model, sum(y[1,j] for j in J) ==1 );
@@ -127,13 +126,29 @@ function buildTSP(inst::Instance)
     @constraint(model, sum(y[j,n] for j in J) ==1 );
     @constraint(model, sum(z[1,j] for j in J) ==1 );
     @constraint(model, sum(z[j,n] for j in J) ==1 );
-
+    #@constraint(model, sum(sum(y[i,j] for j in 1:n) for i in 1:n) >= length(Js)+3);
     # on rentre jamais en 1 et on sort jamais de n
     @constraint(model, sum(x[n,j] for j in 1+1:n) ==0 );
     @constraint(model, sum(y[n,j] for j in 1+1:n) ==0 );
     @constraint(model, sum(x[j,1] for j in 1:n-1) ==0 );
     @constraint(model, sum(y[j,1] for j in 1:n-1) ==0 );
 
+    for i in Jp1
+        #=@constraint(model,[i2 in Jp1; i<i2], sum(x[i,j] for j in 1:n) >= sum(x[i2,j] for  j in 1:n) );
+        @constraint(model,[i2 in Jp1; i<i2], sum(y[i,j] for j in 1:n) >= sum(y[i2,j] for  j in 1:n) );
+        @constraint(model,[i2 in Jp1; i<i2], sum(x[j,i] for j in 1:n) >= sum(x[j,i2] for  j in 1:n) );
+        @constraint(model,[i2 in Jp1; i<i2], sum(y[j,i] for j in 1:n) >= sum(y[j,i2] for  j in 1:n) );=#
+        @constraint(model,[i2 in Jp1; i<i2],qL[i]+inst.service_duration>=qL[i2]);
+        @constraint(model,[i2 in Jp1; i<i2],qS[i]+inst.service_duration>=qS[i2]);
+    end
+    for i in Jp2
+        #=@constraint(model,[i2 in Jp1; i<i2], sum(x[i,j] for j in 1:n) >= sum(x[i2,j] for  j in 1:n) );
+        @constraint(model,[i2 in Jp1; i<i2], sum(y[i,j] for j in 1:n) >= sum(y[i2,j] for  j in 1:n) );
+        @constraint(model,[i2 in Jp1; i<i2], sum(x[j,i] for j in 1:n) >= sum(x[j,i2] for  j in 1:n) );
+        @constraint(model,[i2 in Jp1; i<i2], sum(y[j,i] for j in 1:n) >= sum(y[j,i2] for  j in 1:n) );=#
+        @constraint(model,[i2 in Jp2; i<i2],qL[i]+inst.service_duration>=qL[i2]);
+        @constraint(model,[i2 in Jp2; i<i2],qS[i]+inst.service_duration>=qS[i2]);
+    end
 
     # pour tout i,j in J on rentre autant de fois dans un noeud qu'on en sort
     @constraint(model,[i = J], sum(x[i,j] for j in 1:n) == sum(x[j,i] for j in 1:n) );
@@ -144,8 +159,12 @@ function buildTSP(inst::Instance)
 
     @constraint(model,[i = 1:n], sum(x[i,j] for j in 1:n)<=1)
     @constraint(model,[j = 1:n], sum(x[i,j] for i in 1:n)<=1)
+    #@constraint(model,[i = Jl], sum(y[i,j] for j in 1:n)<=1)
+    #@constraint(model,[j = Jl], sum(y[i,j] for i in 1:n)<=1)
     @constraint(model,[j = Js], sum(y[i,j] for i in 1:n)==1)
     @constraint(model,[i = Js], sum(y[i,j] for j in 1:n)==1)
+    #@constraint(model,[i = 1:n], sum(z[i,j] for j in 1:n)<=1)
+    #@constraint(model,[j = 1:n], sum(z[i,j] for i in 1:n)<=1)
     ## tu rentres exactement une fois dans chaque Jnonp
     @constraint(model,[j = Jnonp], sum(x[i,j] for i in 1:n j!=i)+sum(y[i,j] for i in 1:n)-sum(z[i,j] for i in 1:n j!=i)   == 1);
 
@@ -153,6 +172,8 @@ function buildTSP(inst::Instance)
     #def de z
     @constraint(model,[i = Jl,j = Jl,i!=j], z[i,j] <= (x[i,j]+y[i,j])/2);
     @constraint(model,[j = Jnonp], sum(x[i,j] for i in 1:n j!=i) >= sum(z[i,j] for i in 1:n j!=i));
+    #@constraint(model,[j = Js], sum(z[i,j] for i in 1:n)==0)
+    #@constraint(model,[i = Js], sum(z[i,j] for j in 1:n)==0)
 
     #def de rechargement
     @constraint(model,[i = Jp], Re[i] <= sum(x[j,i] for j in 1:n) - (qS[i]-qL[i])/T) ;
@@ -165,10 +186,8 @@ function buildTSP(inst::Instance)
 
     #time windows
     #@constraint(model,[j = 1:n,i = 1:n,i!=j],  qL[j]+T*(1-x[i,j])>=qL[i]+inst.service_duration+inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx] );
-
     @constraint(model,[j = 1:n,i = 1:n-1,i!=j],  qL[j]+T*(1-x[i,j])>=qL[i]+inst.service_duration+inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx] );
     @constraint(model,[j = 1:n,i = 1:n-1,i!=j],  qS[j]+T*(1-y[i,j])>=qS[i]+inst.service_duration+inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx] );
-    #@constraint(model,[j = 1:n],  qL[j]+T*(1-sum(x[i,j] for i in 1:n i!=j))>=inst.service_duration+inst.nodes[j].TW_min)
     @constraint(model,[j = 1:n],  qL[j]>=inst.service_duration+inst.nodes[j].TW_min)
     @constraint(model,[j = 1:n],  qS[j]>=inst.service_duration+inst.nodes[j].TW_min)
     @constraint(model,[j = 1:n],  qL[j]<=inst.nodes[j].TW_max)
@@ -235,6 +254,7 @@ function main()
 
     paramf = string(instdir,"parameters.txt")
     instf =string(instdir,instNames[1])
+    #instf =string(instdir,"instanceNantes.txt")
     matf =string(instdir,"distancematrix98.txt")
 
     inst = parseInstance(paramf,instf,matf)
