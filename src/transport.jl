@@ -34,6 +34,7 @@ function get_ensemble(inst::Instance)
     Js = Int[]
     J = Int[]
     Jnonp = Int[]
+    Jnonp2 = Int[]
     JnonpL = Int[]
     for i in 1:n
         if inst.nodes[i].vertex_type!="S"
@@ -45,6 +46,7 @@ function get_ensemble(inst::Instance)
         if inst.nodes[i].vertex_type=="P"
             append!(Jp,[i])
         else
+            append!(Jnonp2,[i])
             if inst.nodes[i].vertex_type!="D"
                 append!(Jnonp,[i])
             end
@@ -56,7 +58,7 @@ function get_ensemble(inst::Instance)
             append!(J,[i])
         end
     end
-    return Jl,Js,Jp,Jnonp,JnonpL,J
+    return Jl,Js,Jp,Jnonp,Jnonp2,JnonpL,J
 end
 
 function get_max(inst::Instance)
@@ -88,14 +90,11 @@ function buildTSP(inst::Instance)
     tmp_max =get_max(inst)
     Q = inst.SV_cap
 
-    Jl,Js,Jp , Jnonp,JnonpL, J= get_ensemble(inst)
+    Jl,Js,Jp , Jnonp,Jnonp2,JnonpL, J= get_ensemble(inst)
     println(J)
     @variable(model, x[1:n,1:n] ,Bin);
     @variable(model, y[1:n,1:n] ,Bin);
     @variable(model, z[1:n,1:n] ,Bin);
-    #@variable(model, 1>=x[1:n,1:n]>=0);
-    #@variable(model, 1>=y[1:n,1:n]>=0);
-    #@variable(model, 1>=z[1:n,1:n]>=0);
     @variable(model, qL[1:n]>=0 ); #
     @variable(model, qS[1:n]>=0 ); #
     @variable(model, Q>=Cs[1:n]>=0 ); #
@@ -118,8 +117,8 @@ function buildTSP(inst::Instance)
     @constraint(model,[i = 1:n,j = Js,i!=j], x[i,j] == 0);
 
     ## on peut pas aller sur soi meme
-    @constraint(model,[i = 1:n], x[i,i] == 0);
-    @constraint(model,[i = 1:n], y[i,i] == 0);
+    #@constraint(model,[i = 1:n], x[i,i] == 0);
+    #@constraint(model,[i = 1:n], y[i,i] == 0);
 
     # on sort un fois de 1 et on rentre un fois dans n
     @constraint(model, sum(x[1,j] for j in J) ==1 );
@@ -142,40 +141,42 @@ function buildTSP(inst::Instance)
     @constraint(model,[i = Jnonp], sum(z[i,j] for j in 1:n) == sum(z[j,i] for j in 1:n));
 
 
+
     @constraint(model,[i = 1:n], sum(x[i,j] for j in 1:n)<=1)
-    @constraint(model,[i = 1:n], sum(y[i,j] for j in 1:n)<=1)
     @constraint(model,[j = 1:n], sum(x[i,j] for i in 1:n)<=1)
-    @constraint(model,[j = 1:n], sum(y[i,j] for i in 1:n)<=1)
-
-
+    @constraint(model,[j = Js], sum(y[i,j] for i in 1:n)==1)
+    @constraint(model,[i = Js], sum(y[i,j] for j in 1:n)==1)
     ## tu rentres exactement une fois dans chaque Jnonp
     @constraint(model,[j = Jnonp], sum(x[i,j] for i in 1:n j!=i)+sum(y[i,j] for i in 1:n)-sum(z[i,j] for i in 1:n j!=i)   == 1);
 
 
     #def de z
-    @constraint(model,[i = 1:n,j = 1:n,i!=j], z[i,j] <= (x[i,j]+y[i,j])/2);
+    @constraint(model,[i = Jl,j = Jl,i!=j], z[i,j] <= (x[i,j]+y[i,j])/2);
+    @constraint(model,[j = Jnonp], sum(x[i,j] for i in 1:n j!=i) >= sum(z[i,j] for i in 1:n j!=i));
 
     #def de rechargement
     @constraint(model,[i = Jp], Re[i] <= sum(x[j,i] for j in 1:n) - (qS[i]-qL[i])/T) ;
-
+    @constraint(model,[i = Jnonp2], Re[i] == 0);
     ## demande de i vers j pour yij
     @constraint(model,[i=1:n,j = Jnonp], Cs[j] <= Cs[i]-inst.nodes[j].demand*(1-x[i,j])+Q*(1-y[i,j]));
 
     ## ravitaillement des yij
-    @constraint(model,[i=1:n,j = Jp], Cs[j] >= Q*Re[j]);
+    @constraint(model,[j = Jp], Cs[j] >= Q*Re[j]);
 
     #time windows
     #@constraint(model,[j = 1:n,i = 1:n,i!=j],  qL[j]+T*(1-x[i,j])>=qL[i]+inst.service_duration+inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx] );
 
     @constraint(model,[j = 1:n,i = 1:n-1,i!=j],  qL[j]+T*(1-x[i,j])>=qL[i]+inst.service_duration+inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx] );
     @constraint(model,[j = 1:n,i = 1:n-1,i!=j],  qS[j]+T*(1-y[i,j])>=qS[i]+inst.service_duration+inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx] );
-    @constraint(model,[j = 1:n,i = 1:n,i!=j],  qL[j]+T*(1-x[i,j])>=inst.service_duration+inst.nodes[j].TW_min)
-    @constraint(model,[j = 1:n,i = 1:n,i!=j],  qS[j]+T*(1-y[i,j])>=inst.service_duration+inst.nodes[j].TW_min)
-    @constraint(model,[j = 1:n,i = 1:n,i!=j],  qL[j]<=T*(1-x[i,j])+inst.nodes[j].TW_max)
-    @constraint(model,[j = 1:n,i = 1:n,i!=j],  qS[j]<=T*(1-y[i,j])+inst.nodes[j].TW_max)
+    #@constraint(model,[j = 1:n],  qL[j]+T*(1-sum(x[i,j] for i in 1:n i!=j))>=inst.service_duration+inst.nodes[j].TW_min)
+    @constraint(model,[j = 1:n],  qL[j]>=inst.service_duration+inst.nodes[j].TW_min)
+    @constraint(model,[j = 1:n],  qS[j]>=inst.service_duration+inst.nodes[j].TW_min)
+    @constraint(model,[j = 1:n],  qL[j]<=inst.nodes[j].TW_max)
+    @constraint(model,[j = 1:n],  qS[j]<=inst.nodes[j].TW_max)
 
 
     optimize!(model)
+    #=
     x_val = JuMP.value.(x)
     for i=1:n
         for j=1:n
@@ -213,7 +214,7 @@ function buildTSP(inst::Instance)
         println(" i : ",i," qs : ",qs[i])
         println(" i : ",i," ql : ",ql[i])
 
-    end
+    end=#
     cyclex = cycle_solved(model,x,n)
     cycley = cycle_solved(model,y,n)
     return cyclex,cycley
@@ -233,7 +234,7 @@ function main()
           "R1-2-8.txt","R2-2-8.txt","R1-3-10.txt","R1-3-12.txt","R2-3-10.txt","R2-3-12.txt"]
 
     paramf = string(instdir,"parameters.txt")
-    instf =string(instdir,instNames[3])
+    instf =string(instdir,instNames[1])
     matf =string(instdir,"distancematrix98.txt")
 
     inst = parseInstance(paramf,instf,matf)
