@@ -6,6 +6,27 @@ using JuMP,JSON
 #using GLPK
 include("instance.jl")
 
+function cycle_solved(m, x,n)
+    N = size(x)[1]
+    x_val = JuMP.value.(x)
+    # find cycle
+    pris_i = [0 for i in 1:N]
+    cycle_idx = Int[]
+    push!(cycle_idx, 1)
+    while true
+        v, idx = findmax(x_val[cycle_idx[end],1:N])
+
+        if idx == cycle_idx[1] || idx == n
+            push!(cycle_idx,idx)
+            break
+        else
+            push!(cycle_idx,idx)
+        end
+    end
+
+    return cycle_idx
+end
+
 function get_ensemble(inst::Instance)
     n = size(inst.nodes)[1]
     Jl = Int[]
@@ -46,6 +67,7 @@ function get_max(inst::Instance)
                 tmp_max=inst.nodes[i].TW_min+inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[n].vertex_idx]
             end
     end
+
     return tmp_max
 end
 
@@ -115,9 +137,9 @@ function buildTSP(inst::Instance)
 
 
     # pour tout i,j in J on rentre autant de fois dans un noeud qu'on en sort
-    @constraint(model,[i = J], sum(x[i,j] for j in J) == sum(x[j,i] for j in J) );
-    @constraint(model,[i = J], sum(y[i,j] for j in J) == sum(y[j,i] for j in J) );
-    @constraint(model,[i = Jnonp], sum(z[i,j] for j in J) == sum(z[j,i] for j in J));
+    @constraint(model,[i = J], sum(x[i,j] for j in 1:n) == sum(x[j,i] for j in 1:n) );
+    @constraint(model,[i = J], sum(y[i,j] for j in 1:n) == sum(y[j,i] for j in 1:n) );
+    @constraint(model,[i = Jnonp], sum(z[i,j] for j in 1:n) == sum(z[j,i] for j in 1:n));
 
 
     @constraint(model,[i = 1:n], sum(x[i,j] for j in 1:n)<=1)
@@ -134,7 +156,7 @@ function buildTSP(inst::Instance)
     @constraint(model,[i = 1:n,j = 1:n,i!=j], z[i,j] <= (x[i,j]+y[i,j])/2);
 
     #def de rechargement
-    @constraint(model,[i = Jp], Re[i] <= 1 - (qS[i]-qL[i])/T);
+    @constraint(model,[i = Jp], Re[i] <= sum(x[j,i] for j in 1:n) - (qS[i]-qL[i])/T) ;
 
     ## demande de i vers j pour yij
     @constraint(model,[i=1:n,j = Jnonp], Cs[j] <= Cs[i]-inst.nodes[j].demand*(1-x[i,j])+Q*(1-y[i,j]));
@@ -145,12 +167,12 @@ function buildTSP(inst::Instance)
     #time windows
     #@constraint(model,[j = 1:n,i = 1:n,i!=j],  qL[j]+T*(1-x[i,j])>=qL[i]+inst.service_duration+inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx] );
 
-    @constraint(model,[j = 1:n,i = 1:n,i!=j],  qL[j]+T*(1-x[i,j])>=qL[i]+inst.service_duration+inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx] );
-    @constraint(model,[j = 1:n,i = 1:n,i!=j],  qS[j]+T*(1-y[i,j])>=qS[i]+inst.service_duration+inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx] );
+    @constraint(model,[j = 1:n,i = 1:n-1,i!=j],  qL[j]+T*(1-x[i,j])>=qL[i]+inst.service_duration+inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx] );
+    @constraint(model,[j = 1:n,i = 1:n-1,i!=j],  qS[j]+T*(1-y[i,j])>=qS[i]+inst.service_duration+inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx] );
     @constraint(model,[j = 1:n,i = 1:n,i!=j],  qL[j]+T*(1-x[i,j])>=inst.service_duration+inst.nodes[j].TW_min)
     @constraint(model,[j = 1:n,i = 1:n,i!=j],  qS[j]+T*(1-y[i,j])>=inst.service_duration+inst.nodes[j].TW_min)
-    @constraint(model,[j = 1:n,i = 1:n,i!=j],  qL[j]<=T*(1-x[i,j])+inst.tw_width+inst.nodes[j].TW_min)
-    @constraint(model,[j = 1:n,i = 1:n,i!=j],  qS[j]<=T*(1-y[i,j])+inst.tw_width+inst.nodes[j].TW_min)
+    @constraint(model,[j = 1:n,i = 1:n,i!=j],  qL[j]<=T*(1-x[i,j])+inst.nodes[j].TW_max)
+    @constraint(model,[j = 1:n,i = 1:n,i!=j],  qS[j]<=T*(1-y[i,j])+inst.nodes[j].TW_max)
 
 
     optimize!(model)
@@ -171,8 +193,9 @@ function buildTSP(inst::Instance)
                 println(" i,j : ",i,",",j," val_y : ",x_val[i,j])
             end
         end
-        println(" i : ",i," cs : ",cs[i])
     end
+
+
     x_val = JuMP.value.(z)
 
     for i=1:n
@@ -186,13 +209,14 @@ function buildTSP(inst::Instance)
     qs = JuMP.value.(qS)
     ql = JuMP.value.(qL)
     for i=1:n
-
+        println(" i : ",i," cs : ",cs[i])
         println(" i : ",i," qs : ",qs[i])
         println(" i : ",i," ql : ",ql[i])
 
     end
-
-    return
+    cyclex = cycle_solved(model,x,n)
+    cycley = cycle_solved(model,y,n)
+    return cyclex,cycley
 
 end # end buildTSP
 
@@ -209,7 +233,7 @@ function main()
           "R1-2-8.txt","R2-2-8.txt","R1-3-10.txt","R1-3-12.txt","R2-3-10.txt","R2-3-12.txt"]
 
     paramf = string(instdir,"parameters.txt")
-    instf =string(instdir,instNames[1])
+    instf =string(instdir,instNames[3])
     matf =string(instdir,"distancematrix98.txt")
 
     inst = parseInstance(paramf,instf,matf)
@@ -219,9 +243,9 @@ function main()
     println(cycley)
     # saving some results to be loaded somewhere else:
     #saving in a CSV File
-
-    CSV.write(string(outdir,"routes.csv"), inst.nodes[cyclex],delim='\t')
-
+    CSV.write(string(outdir,"routes.csv"), inst.nodes,delim='\t')
+    CSV.write(string(outdir,"routesx.csv"), inst.nodes[cyclex],delim='\t')
+    CSV.write(string(outdir,"routesy.csv"), inst.nodes[cycley],delim='\t')
     # saving in JSON
     open(string(outdir,"routes.json"),"w") do f
         JSON.print(f, inst.nodes[cyclex], 4)
