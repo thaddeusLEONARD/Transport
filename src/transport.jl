@@ -1,7 +1,9 @@
 # Using CBC https://github.com/JuliaOpt/Cbc.jl
 using Cbc
-#using Gurobi
+using Gurobi
 using JuMP,JSON
+using DelimitedFiles
+
 #using GLPKMathProgInterface
 #using GLPK
 include("instance.jl")
@@ -149,8 +151,8 @@ end
 #   m       JuMP model
 
 function buildTSP(inst::Instance,a)
-    model = Model(with_optimizer(Cbc.Optimizer, logLevel=1))
-    #model = Model(with_optimizer(Gurobi.Optimizer, Presolve=0, OutputFlag=0))
+    #model = Model(with_optimizer(Cbc.Optimizer, logLevel=1))
+    model = Model(with_optimizer(Gurobi.Optimizer, Presolve=0, OutputFlag=0))
     n = size(inst.nodes)[1]
     T = inst.time_horizon
     TT = 23400
@@ -248,8 +250,8 @@ function buildTSP(inst::Instance,a)
 
     #time windows
     #@constraint(model,[j = 1:n,i = 1:n,i!=j],  qL[j]+T*(1-x[i,j])>=qL[i]+inst.service_duration+inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx] );
-    @constraint(model,[j = 1:n,i = 1:n-1,i!=j],  qL[j]+TT*(1-x[i,j])>=qL[i]+inst.service_duration+inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx] );
-    @constraint(model,[j = 1:n,i = 1:n-1,i!=j],  qS[j]+TT*(1-y[i,j])>=qS[i]+inst.service_duration+inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx] );
+    @constraint(model,[j = 2:n,i = 1:n-1,i!=j],  qL[j]+TT*(1-x[i,j])>=qL[i]+inst.service_duration+inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx] );
+    @constraint(model,[j = 2:n,i = 1:n-1,i!=j],  qS[j]+TT*(1-y[i,j])>=qS[i]+inst.service_duration+inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx] );
     @constraint(model,[j = 1:n],  qL[j]>=inst.service_duration+inst.nodes[j].TW_min+tmp_min)
     @constraint(model,[j = 1:n],  qS[j]>=inst.service_duration+inst.nodes[j].TW_min+tmp_min)
     @constraint(model,[j = 1:n],  qL[j]<=inst.nodes[j].TW_max)
@@ -296,10 +298,14 @@ function buildTSP(inst::Instance,a)
         println(" i : ",i," ql : ",ql[i])
 
     end=#
-    cyclex = cycle_solved(model,x,n)
-    cycley = cycle_solved(model,y,n)
-    return cyclex,cycley
-
+    if termination_status(model)==MOI.INFEASIBLE
+        println("INFEASIBLE")
+        return [],[],0
+    else
+        cyclex = cycle_solved(model,x,n)
+        cycley = cycle_solved(model,y,n)
+        return cyclex,cycley, objective_value(model)
+    end
 end # end buildTSP
 
 
@@ -309,28 +315,83 @@ function main()
     # Main program starting here
 
     # PARSE iNstance, parameters and distanceMatrix
-    instdir = "..\\instances2019\\"
-    outdir = "..\\output\\"
+    instdir = "..\\Transport\\instances2019\\"
+    outdir = "..\\Transport\\output\\"
     instNames= ["C1-2-8.txt","C2-2-8.txt","C1-3-10.txt","C1-3-12.txt","C2-3-10.txt","C2-3-12.txt",
           "R1-2-8.txt","R2-2-8.txt","R1-3-10.txt","R1-3-12.txt","R2-3-10.txt","R2-3-12.txt"]
 
     paramf = string(instdir,"parameters.txt")
-    instf =string(instdir,instNames[1])
-    #instf =string(instdir,"instanceNantes.txt")
-    matf =string(instdir,"distancematrix98.txt")
-    inst,a = parseInstance(paramf,instf,matf)
 
-    @time  cyclex,cycley = buildTSP(inst,a)
-    println(a)
-    println(cyclex)
-    println(cycley)
-    # saving some results to be loaded somewhere else:
-    #saving in a CSV File
-    CSV.write(string(outdir,"routes.csv"), inst.nodes,delim='\t')
-    CSV.write(string(outdir,"routesx.csv"), inst.nodes[cyclex],delim='\t')
-    CSV.write(string(outdir,"routesy.csv"), inst.nodes[cycley],delim='\t')
-    # saving in JSON
-    open(string(outdir,"routes.json"),"w") do f
-        JSON.print(f, inst.nodes[cyclex], 4)
-    end
+
+        for i in 1:12
+            instf =string(instdir,instNames[i])
+            matf =string(instdir,"distancematrix98.txt")
+            inst,a = parseInstance(paramf,instf,matf)
+            outsvc=string(i,"svc.csv")
+            outspeed=string(i,"speed.csv")
+            outhorizon=string(i,"horizon.csv")
+            outwidth=string(i,"width.csv")
+            outduration=string(i,"duration.csv")
+            outRes=string(i,"res.csv")
+            #parametre initiaux
+            debSvc=inst.SV_cap*1.5
+            debSpeed=inst.speed_ratio*1.5
+            debHorizon=inst.time_horizon*1.5
+            debWidth=inst.tw_width*1.5
+            debService=inst.service_duration*1.5
+            svc=[]
+            speed=[]
+            horizon=[]
+            width=[]
+            duration=[]
+            for j in 1:11
+                #maj parameters
+                inst,a = parseInstance(paramf,instf,matf)
+                inst.SV_cap=debSvc-floor((j-1)/10*debSvc)
+                @time  cyclex,cycley,opt= buildTSP(inst,a)
+                push!(svc,opt)
+
+                inst,a = parseInstance(paramf,instf,matf)
+                inst.speed_ratio=debSpeed-floor((j-1)/10*debSpeed)
+                @time  cyclex,cycley,opt= buildTSP(inst,a)
+                push!(speed,opt)
+
+                inst,a = parseInstance(paramf,instf,matf)
+                inst.time_horizon=debHorizon-floor((j-1)/10*debHorizon)
+                @time  cyclex,cycley,opt= buildTSP(inst,a)
+                push!(horizon,opt)
+
+                inst,a = parseInstance(paramf,instf,matf)
+                inst.tw_width=debWidth-floor((j-1)/10*debWidth)
+                @time  cyclex,cycley,opt= buildTSP(inst,a)
+                push!(width,opt)
+
+                inst,a = parseInstance(paramf,instf,matf)
+                inst.service_duration=debService-floor((j-1)/10*debService)
+                @time  cyclex,cycley,opt= buildTSP(inst,a)
+                push!(duration,opt)
+
+            end
+            writedlm(outsvc,svc, ", ")
+            writedlm(outspeed,speed, ", ")
+            writedlm(outhorizon,horizon, ", ")
+            writedlm(outwidth,width, ", ")
+            writedlm(outduration,duration, ", ")
+            inst,a = parseInstance(paramf,instf,matf)
+            @time  cyclex,cycley,opt= buildTSP(inst,a)
+            CSV.write(string(i,"resx.csv"), inst.nodes[cyclex],delim='\t')
+            CSV.write(string(i,"resy.csv"), inst.nodes[cycley],delim='\t')
+            # saving some results to be loaded somewhere else:
+            #saving in a CSV File
+            CSV.write(string(outdir,i,"routes.csv"), inst.nodes,delim='\t')
+            CSV.write(string(outdir,i,"routesx.csv"), inst.nodes[cyclex],delim='\t')
+            CSV.write(string(outdir,i,"routesy.csv"), inst.nodes[cycley],delim='\t')
+            # saving in JSON
+            open(string(outdir,i,"routes.json"),"w") do f
+                JSON.print(f, inst.nodes[cyclex], 4)
+            end
+        end
+
+
+
 end

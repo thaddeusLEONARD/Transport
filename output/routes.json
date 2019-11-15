@@ -12,11 +12,11 @@
         "serv": -1
     },
     {
-        "vertex_idx": 20,
+        "vertex_idx": 30,
         "demand": 0,
         "vertex_type": "P",
-        "lat": 47.235291,
-        "long": -1.546796,
+        "lat": 47.229754,
+        "long": -1.572034,
         "TW_min": 0,
         "TW_max": 32400,
         "route_idx": -1,
