@@ -1,6 +1,6 @@
 # Using CBC https://github.com/JuliaOpt/Cbc.jl
 using Cbc
-using Gurobi
+#using Gurobi
 using JuMP,JSON
 using DelimitedFiles
 
@@ -124,8 +124,8 @@ end
 #   m       JuMP model
 
 function buildTSP(inst::Instance,a)
-    #model = Model(with_optimizer(Cbc.Optimizer, logLevel=1))
-    model = Model(with_optimizer(Gurobi.Optimizer, Presolve=0, OutputFlag=0))
+    model = Model(with_optimizer(Cbc.Optimizer, logLevel=0))
+    #model = Model(with_optimizer(Gurobi.Optimizer, Presolve=0, OutputFlag=0))
     n = size(inst.nodes)[1]
     T = inst.time_horizon
     TT = 23400
@@ -200,7 +200,7 @@ function buildTSP(inst::Instance,a)
     #@constraint(model,[i = 1:n], sum(z[i,j] for j in 1:n)<=1)
     #@constraint(model,[j = 1:n], sum(z[i,j] for i in 1:n)<=1)
     ## tu rentres exactement une fois dans chaque Jnonp
-    @constraint(model,[j = Jnonp], sum(x[i,j] for i in 1:n j!=i)+sum(y[i,j] for i in 1:n)-sum(z[i,j] for i in 1:n j!=i)   == 1);
+    @constraint(model,[j = Jnonp], sum(x[i,j] +y[i,j]-z[i,j] for i in 1:n j!=i)   == 1);
 
 
     #def de z
@@ -220,9 +220,9 @@ function buildTSP(inst::Instance,a)
     #time windows
     #@constraint(model,[j = 1:n,i = 1:n,i!=j],  qL[j]+T*(1-x[i,j])>=qL[i]+inst.service_duration+inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx] );
     @constraint(model,[j = 1:n,i = 1:n-1,i!=j],  qL[j]+TT*(1-x[i,j])>=qL[i]+inst.service_duration+inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx] );
-    @constraint(model,[j = 1:n,i = 1:n-1,i!=j],  qS[j]+TT*(1-y[i,j])>=qS[i]+inst.service_duration+inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx] );
-    @constraint(model,[j = 1:n],  qL[j]>=inst.service_duration+inst.nodes[j].TW_min+tmp_min[j])
-    @constraint(model,[j = 1:n],  qS[j]>=inst.service_duration+inst.nodes[j].TW_min+tmp_min[j])
+    @constraint(model,[j = 1:n,i = 1:n-1,i!=j],  qS[j]+TT*(1-y[i,j])>=qS[i]+inst.service_duration+inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx]*inst.speed_ratio );
+    @constraint(model,[j = 1:n],  qL[j]>=inst.service_duration+inst.nodes[j].TW_min)
+    @constraint(model,[j = 1:n],  qS[j]>=inst.service_duration+inst.nodes[j].TW_min)
     @constraint(model,[j = 1:n],  qL[j]<=inst.nodes[j].TW_max)
     @constraint(model,[j = 1:n],  qS[j]<=inst.nodes[j].TW_max)
 
@@ -239,7 +239,7 @@ function buildTSP(inst::Instance,a)
 
     end
     x_val = JuMP.value.(y)
-    cs = JuMP.value.(Cs)
+
     for i=1:n
         for j=1:n
             if x_val[i,j]>0
@@ -259,6 +259,8 @@ function buildTSP(inst::Instance,a)
         end
 
     end
+    =#
+    #=cs = JuMP.value.(Cs)
     qs = JuMP.value.(qS)
     ql = JuMP.value.(qL)
     for i=1:n
@@ -284,15 +286,15 @@ function main()
     # Main program starting here
 
     # PARSE iNstance, parameters and distanceMatrix
-    instdir = "..\\Transport\\instances2019\\"
-    outdir = "..\\Transport\\output\\"
+    instdir = "..\\instances2019\\"
+    outdir = "..\\output\\"
     instNames= ["C1-2-8.txt","C2-2-8.txt","C1-3-10.txt","C1-3-12.txt","C2-3-10.txt","C2-3-12.txt",
           "R1-2-8.txt","R2-2-8.txt","R1-3-10.txt","R1-3-12.txt","R2-3-10.txt","R2-3-12.txt"]
 
     paramf = string(instdir,"parameters.txt")
 
 
-        for i in 3:12
+        for i in 7:7
             instf =string(instdir,instNames[i])
             matf =string(instdir,"distancematrix98.txt")
             inst,a = parseInstance(paramf,instf,matf)

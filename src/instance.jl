@@ -57,10 +57,21 @@ function parseInstance(paramf,instancef,distmatf)
     tmp_park =0
     tmpi = 2
     tmp_capa = 0
-    for node in nodes
-        if node.vertex_type!="S"
-            tmp_capa+=node.demand
+    if speed_ratio>=1
+        for node in nodes
+            if node.vertex_type=="S"
+                tmp_capa+=node.demand
 
+            end
+        end
+    else
+        for node in nodes
+            if node.vertex_type=="S"
+                tmp_capa+=node.demand
+            end
+            if node.vertex_type=="LS"
+                tmp_capa+=node.demand
+            end
         end
     end
     a =ceil(tmp_capa/SV_cap)
