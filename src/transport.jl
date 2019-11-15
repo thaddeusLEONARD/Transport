@@ -71,8 +71,8 @@ function get_parking(inst::Instance,Jp,a)
     i=Jp[1]
     while i < Jp[length(Jp)]
         tmpi=i
-        println(tmpii)
-        println(Jpp)
+        #println(tmpii)
+        #println(Jpp)
         while tmpi<= inst.nodes[i].vertex_idx==inst.nodes[tmpi].vertex_idx
             push!(Jpp[tmpii],tmpi)
             tmpi+=1
@@ -100,11 +100,11 @@ function get_min(inst::Instance)
     n = size(inst.nodes)[1]
     T = inst.time_horizon
     tmp_min = [Float64(T) for i in 1:n]
-    println(tmp_min)
+    #println(tmp_min)
     for i in 1:n
         for j in 1:n
             if inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx]>0 && inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx]<tmp_min[i]
-                println(i)
+                #println(i)
                 tmp_min[i] = inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx]
            end
         end
@@ -219,17 +219,10 @@ function buildTSP(inst::Instance,a)
 
     #time windows
     #@constraint(model,[j = 1:n,i = 1:n,i!=j],  qL[j]+T*(1-x[i,j])>=qL[i]+inst.service_duration+inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx] );
-<<<<<<< HEAD
-    @constraint(model,[j = 2:n,i = 1:n-1,i!=j],  qL[j]+TT*(1-x[i,j])>=qL[i]+inst.service_duration+inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx] );
-    @constraint(model,[j = 2:n,i = 1:n-1,i!=j],  qS[j]+TT*(1-y[i,j])>=qS[i]+inst.service_duration+inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx] );
-    @constraint(model,[j = 1:n],  qL[j]>=inst.service_duration+inst.nodes[j].TW_min+tmp_min)
-    @constraint(model,[j = 1:n],  qS[j]>=inst.service_duration+inst.nodes[j].TW_min+tmp_min)
-=======
     @constraint(model,[j = 1:n,i = 1:n-1,i!=j],  qL[j]+TT*(1-x[i,j])>=qL[i]+inst.service_duration+inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx] );
     @constraint(model,[j = 1:n,i = 1:n-1,i!=j],  qS[j]+TT*(1-y[i,j])>=qS[i]+inst.service_duration+inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx] );
     @constraint(model,[j = 1:n],  qL[j]>=inst.service_duration+inst.nodes[j].TW_min+tmp_min[j])
     @constraint(model,[j = 1:n],  qS[j]>=inst.service_duration+inst.nodes[j].TW_min+tmp_min[j])
->>>>>>> e619b502cfcfc86211227dde5233391f45545fcf
     @constraint(model,[j = 1:n],  qL[j]<=inst.nodes[j].TW_max)
     @constraint(model,[j = 1:n],  qS[j]<=inst.nodes[j].TW_max)
 
@@ -274,7 +267,6 @@ function buildTSP(inst::Instance,a)
         println(" i : ",i," ql : ",ql[i])
 
     end=#
-<<<<<<< HEAD
     if termination_status(model)==MOI.INFEASIBLE
         println("INFEASIBLE")
         return [],[],0
@@ -283,13 +275,6 @@ function buildTSP(inst::Instance,a)
         cycley = cycle_solved(model,y,n)
         return cyclex,cycley, objective_value(model)
     end
-=======
-    cyclex = cycle_solved(model,x,n)
-    cycley = cycle_solved(model,y,n)
-    println(tmp_min)
-    return cyclex,cycley
-
->>>>>>> e619b502cfcfc86211227dde5233391f45545fcf
 end # end buildTSP
 
 
@@ -299,20 +284,15 @@ function main()
     # Main program starting here
 
     # PARSE iNstance, parameters and distanceMatrix
-<<<<<<< HEAD
     instdir = "..\\Transport\\instances2019\\"
     outdir = "..\\Transport\\output\\"
-=======
-    instdir = "../instances2019/"
-    outdir = "../output/"
->>>>>>> e619b502cfcfc86211227dde5233391f45545fcf
     instNames= ["C1-2-8.txt","C2-2-8.txt","C1-3-10.txt","C1-3-12.txt","C2-3-10.txt","C2-3-12.txt",
           "R1-2-8.txt","R2-2-8.txt","R1-3-10.txt","R1-3-12.txt","R2-3-10.txt","R2-3-12.txt"]
 
     paramf = string(instdir,"parameters.txt")
 
 
-        for i in 1:12
+        for i in 1:4
             instf =string(instdir,instNames[i])
             matf =string(instdir,"distancematrix98.txt")
             inst,a = parseInstance(paramf,instf,matf)
@@ -337,27 +317,37 @@ function main()
                 #maj parameters
                 inst,a = parseInstance(paramf,instf,matf)
                 inst.SV_cap=debSvc-floor((j-1)/10*debSvc)
+                deb=time()
                 @time  cyclex,cycley,opt= buildTSP(inst,a)
-                push!(svc,opt)
+                fin=time()-deb
+                push!(svc,[opt,fin])
 
                 inst,a = parseInstance(paramf,instf,matf)
                 inst.speed_ratio=debSpeed-floor((j-1)/10*debSpeed)
+                deb=time()
                 @time  cyclex,cycley,opt= buildTSP(inst,a)
+                fin=time()-deb
                 push!(speed,opt)
 
                 inst,a = parseInstance(paramf,instf,matf)
                 inst.time_horizon=debHorizon-floor((j-1)/10*debHorizon)
+                deb=time()
                 @time  cyclex,cycley,opt= buildTSP(inst,a)
+                fin=time()-deb
                 push!(horizon,opt)
 
                 inst,a = parseInstance(paramf,instf,matf)
                 inst.tw_width=debWidth-floor((j-1)/10*debWidth)
+                deb=time()
                 @time  cyclex,cycley,opt= buildTSP(inst,a)
+                fin=time()-deb
                 push!(width,opt)
 
                 inst,a = parseInstance(paramf,instf,matf)
                 inst.service_duration=debService-floor((j-1)/10*debService)
+                deb=time()
                 @time  cyclex,cycley,opt= buildTSP(inst,a)
+                fin=time()-deb
                 push!(duration,opt)
 
             end
@@ -367,7 +357,9 @@ function main()
             writedlm(outwidth,width, ", ")
             writedlm(outduration,duration, ", ")
             inst,a = parseInstance(paramf,instf,matf)
+            deb=time()
             @time  cyclex,cycley,opt= buildTSP(inst,a)
+            fin=time()-deb
             CSV.write(string(i,"resx.csv"), inst.nodes[cyclex],delim='\t')
             CSV.write(string(i,"resy.csv"), inst.nodes[cycley],delim='\t')
             # saving some results to be loaded somewhere else:

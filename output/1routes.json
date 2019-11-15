@@ -1,0 +1,86 @@
+[
+    {
+        "vertex_idx": 1,
+        "demand": 0,
+        "vertex_type": "D",
+        "lat": 47.282609,
+        "long": -1.520303,
+        "TW_min": 0,
+        "TW_max": 32400,
+        "route_idx": -1,
+        "order_in_route": -1,
+        "serv": -1
+    },
+    {
+        "vertex_idx": 30,
+        "demand": 0,
+        "vertex_type": "P",
+        "lat": 47.229754,
+        "long": -1.572034,
+        "TW_min": 0,
+        "TW_max": 32400,
+        "route_idx": -1,
+        "order_in_route": -1,
+        "serv": -1
+    },
+    {
+        "vertex_idx": 42,
+        "demand": 100,
+        "vertex_type": "LS",
+        "lat": 47.236236,
+        "long": -1.563558,
+        "TW_min": 16200,
+        "TW_max": 23400,
+        "route_idx": -1,
+        "order_in_route": -1,
+        "serv": -1
+    },
+    {
+        "vertex_idx": 32,
+        "demand": 80,
+        "vertex_type": "LS",
+        "lat": 47.248309,
+        "long": -1.576958,
+        "TW_min": 23400,
+        "TW_max": 30600,
+        "route_idx": -1,
+        "order_in_route": -1,
+        "serv": -1
+    },
+    {
+        "vertex_idx": 87,
+        "demand": 90,
+        "vertex_type": "LS",
+        "lat": 47.240526,
+        "long": -1.591229,
+        "TW_min": 23400,
+        "TW_max": 30600,
+        "route_idx": -1,
+        "order_in_route": -1,
+        "serv": -1
+    },
+    {
+        "vertex_idx": 30,
+        "demand": 0,
+        "vertex_type": "P",
+        "lat": 47.229754,
+        "long": -1.572034,
+        "TW_min": 0,
+        "TW_max": 32400,
+        "route_idx": -1,
+        "order_in_route": -1,
+        "serv": -1
+    },
+    {
+        "vertex_idx": 1,
+        "demand": 0,
+        "vertex_type": "D",
+        "lat": 47.282609,
+        "long": -1.520303,
+        "TW_min": 0,
+        "TW_max": 32400,
+        "route_idx": -1,
+        "order_in_route": -1,
+        "serv": -1
+    }
+]
