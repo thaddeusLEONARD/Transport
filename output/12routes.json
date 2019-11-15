@@ -1,0 +1,110 @@
+[
+    {
+        "vertex_idx": 1,
+        "demand": 0,
+        "vertex_type": "D",
+        "lat": 47.282609,
+        "long": -1.520303,
+        "TW_min": 0,
+        "TW_max": 32400,
+        "route_idx": -1,
+        "order_in_route": -1,
+        "serv": -1
+    },
+    {
+        "vertex_idx": 44,
+        "demand": 20,
+        "vertex_type": "LS",
+        "lat": 47.230202,
+        "long": -1.52356,
+        "TW_min": 1800,
+        "TW_max": 9000,
+        "route_idx": -1,
+        "order_in_route": -1,
+        "serv": -1
+    },
+    {
+        "vertex_idx": 41,
+        "demand": 0,
+        "vertex_type": "P",
+        "lat": 47.233521,
+        "long": -1.565815,
+        "TW_min": 0,
+        "TW_max": 32400,
+        "route_idx": -1,
+        "order_in_route": -1,
+        "serv": -1
+    },
+    {
+        "vertex_idx": 83,
+        "demand": 30,
+        "vertex_type": "LS",
+        "lat": 47.209999,
+        "long": -1.595902,
+        "TW_min": 5400,
+        "TW_max": 12600,
+        "route_idx": -1,
+        "order_in_route": -1,
+        "serv": -1
+    },
+    {
+        "vertex_idx": 92,
+        "demand": 80,
+        "vertex_type": "LS",
+        "lat": 47.228719,
+        "long": -1.604925,
+        "TW_min": 14400,
+        "TW_max": 21600,
+        "route_idx": -1,
+        "order_in_route": -1,
+        "serv": -1
+    },
+    {
+        "vertex_idx": 98,
+        "demand": 10,
+        "vertex_type": "LS",
+        "lat": 47.22216,
+        "long": -1.606121,
+        "TW_min": 23400,
+        "TW_max": 30600,
+        "route_idx": -1,
+        "order_in_route": -1,
+        "serv": -1
+    },
+    {
+        "vertex_idx": 32,
+        "demand": 80,
+        "vertex_type": "LS",
+        "lat": 47.248309,
+        "long": -1.576958,
+        "TW_min": 23400,
+        "TW_max": 30600,
+        "route_idx": -1,
+        "order_in_route": -1,
+        "serv": -1
+    },
+    {
+        "vertex_idx": 41,
+        "demand": 0,
+        "vertex_type": "P",
+        "lat": 47.233521,
+        "long": -1.565815,
+        "TW_min": 0,
+        "TW_max": 32400,
+        "route_idx": -1,
+        "order_in_route": -1,
+        "serv": -1
+    },
+    {
+        "vertex_idx": 1,
+        "demand": 0,
+        "vertex_type": "D",
+        "lat": 47.282609,
+        "long": -1.520303,
+        "TW_min": 0,
+        "TW_max": 32400,
+        "route_idx": -1,
+        "order_in_route": -1,
+        "serv": -1
+    }
+]

@@ -292,7 +292,7 @@ function main()
     paramf = string(instdir,"parameters.txt")
 
 
-        for i in 1:4
+        for i in 3:12
             instf =string(instdir,instNames[i])
             matf =string(instdir,"distancematrix98.txt")
             inst,a = parseInstance(paramf,instf,matf)
@@ -313,7 +313,7 @@ function main()
             horizon=[]
             width=[]
             duration=[]
-            for j in 1:11
+            #=for j in 1:11
                 #maj parameters
                 inst,a = parseInstance(paramf,instf,matf)
                 inst.SV_cap=debSvc-floor((j-1)/10*debSvc)
@@ -327,35 +327,35 @@ function main()
                 deb=time()
                 @time  cyclex,cycley,opt= buildTSP(inst,a)
                 fin=time()-deb
-                push!(speed,opt)
+                push!(speed,[opt,fin])
 
                 inst,a = parseInstance(paramf,instf,matf)
                 inst.time_horizon=debHorizon-floor((j-1)/10*debHorizon)
                 deb=time()
                 @time  cyclex,cycley,opt= buildTSP(inst,a)
                 fin=time()-deb
-                push!(horizon,opt)
+                push!(horizon,[opt,fin])
 
                 inst,a = parseInstance(paramf,instf,matf)
                 inst.tw_width=debWidth-floor((j-1)/10*debWidth)
                 deb=time()
                 @time  cyclex,cycley,opt= buildTSP(inst,a)
                 fin=time()-deb
-                push!(width,opt)
+                push!(width,[opt,fin])
 
                 inst,a = parseInstance(paramf,instf,matf)
                 inst.service_duration=debService-floor((j-1)/10*debService)
                 deb=time()
                 @time  cyclex,cycley,opt= buildTSP(inst,a)
                 fin=time()-deb
-                push!(duration,opt)
+                push!(duration,[opt,fin])
 
             end
             writedlm(outsvc,svc, ", ")
             writedlm(outspeed,speed, ", ")
             writedlm(outhorizon,horizon, ", ")
             writedlm(outwidth,width, ", ")
-            writedlm(outduration,duration, ", ")
+            writedlm(outduration,duration, ", ")=#
             inst,a = parseInstance(paramf,instf,matf)
             deb=time()
             @time  cyclex,cycley,opt= buildTSP(inst,a)

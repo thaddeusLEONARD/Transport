@@ -73,8 +73,8 @@ function parseInstance(paramf,instancef,distmatf)
             for i in 1:a
                 push!(tmpp,node)
             end
-            println(tmpp)
-            println(tmpi)
+            #println(tmpp)
+            #println(tmpi)
             splice!(nodes,tmpi:tmpi,tmpp)
             tmpi+=Int(a)
         end
