@@ -93,6 +93,52 @@ function get_max(inst::Instance)
     return tmp_max
 end
 
+function get_min(inst::Instance)
+    n = size(inst.nodes)[1]
+    tmp_min = inst.dist_matrix[inst.nodes[1].vertex_idx,inst.nodes[2].vertex_idx]
+    for i in 1:n
+        for j in 1:n
+            if inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx]>0 && inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx]<tmp_min
+                println(i)
+                tmp_min = inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx]
+           end
+        end
+    end
+    for j in 1:n
+        for i in 1:n
+            if inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx]>0 && inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx]<tmp_min
+                tmp_min = inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx]
+           end
+        end
+    end
+
+    return tmp_min
+end
+
+function get_min_park(inst::Instance,Jp)
+    n = size(inst.nodes)[1]
+    tmp_min = inst.dist_matrix[inst.nodes[1].vertex_idx,inst.nodes[Jp[1]].vertex_idx]
+    println(tmp_min)
+    for i in Jp
+        for j in 1:n
+
+            if !(j in Jp) &&inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx]>0 && inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx]<tmp_min
+                tmp_min = inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx]
+           end
+        end
+    end
+    for j in Jp
+        for i in 1:n
+
+            if !(j in Jp) &&inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx]>0 && inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx]<tmp_min
+                tmp_min = inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx]
+           end
+        end
+    end
+
+    return tmp_min
+end
+
 
 # buildTSP
 # Given a matrix of city locations, build the TSP
@@ -107,17 +153,23 @@ function buildTSP(inst::Instance,a)
     #model = Model(with_optimizer(Gurobi.Optimizer, Presolve=0, OutputFlag=0))
     n = size(inst.nodes)[1]
     T = inst.time_horizon
+    TT = 23400
     tmp_max =get_max(inst)
     Q = inst.SV_cap
+    tmp_min = get_min(inst)
 
     Jl,Js,Jp , Jnonp,Jnonp2,JnonpL, J= get_ensemble(inst)
     Jpp    =get_parking(inst,Jp,a)
+    tmp_min_park = get_min_park(inst,Jp)
         println(Jpp)
+    println(tmp_min)
+    println(tmp_min_park)
+
     @variable(model, x[1:n,1:n] ,Bin);
     @variable(model, y[1:n,1:n] ,Bin);
     @variable(model, z[1:n,1:n] ,Bin);
-    @variable(model, qL[1:n]>=0 ); #
-    @variable(model, qS[1:n]>=0 ); #
+    @variable(model, T>=qL[1:n]>=0 ); #
+    @variable(model, T>=qS[1:n]>=0 ); #
     @variable(model, Q>=Cs[1:n]>=0 ); #
     @variable(model, Re[1:n] ,Bin);
     # constraints -- satisfy the demand exactly
@@ -131,7 +183,6 @@ function buildTSP(inst::Instance,a)
     #@constraint(model, Cs[1]==Q)
     @constraint(model, qL[n]<=T)
     @constraint(model, qS[n]<=T)
-
     ## le x peut pas aller dans un Js
     @constraint(model,[i = 1:n,j = Js,i!=j], x[i,j] == 0);
 
@@ -156,12 +207,8 @@ function buildTSP(inst::Instance,a)
         @constraint(model,[i = jpp,j = jpp], y[i,j] == 0);
         @constraint(model,[i = jpp,j = jpp], x[i,j] == 0);
         for i in jpp
-            #=@constraint(model,[i2 in Jp1; i<i2], sum(x[i,j] for j in 1:n) >= sum(x[i2,j] for  j in 1:n) );
-            @constraint(model,[i2 in Jp1; i<i2], sum(y[i,j] for j in 1:n) >= sum(y[i2,j] for  j in 1:n) );
-            @constraint(model,[i2 in Jp1; i<i2], sum(x[j,i] for j in 1:n) >= sum(x[j,i2] for  j in 1:n) );
-            @constraint(model,[i2 in Jp1; i<i2], sum(y[j,i] for j in 1:n) >= sum(y[j,i2] for  j in 1:n) );=#
-            @constraint(model,[i2 in jpp; i<i2],qL[i]-inst.service_duration>=qL[i2]);
-            @constraint(model,[i2 in jpp; i<i2],qS[i]-inst.service_duration>=qS[i2]);
+            @constraint(model,[i2 in jpp; i<i2],qL[i]-inst.service_duration-tmp_min_park*2>=qL[i2]);
+            @constraint(model,[i2 in jpp; i<i2],qS[i]-inst.service_duration-tmp_min_park*2>=qS[i2]);
         end
     end
 
@@ -192,20 +239,19 @@ function buildTSP(inst::Instance,a)
     #@constraint(model,[i = Js], sum(z[i,j] for j in 1:n)==0)
 
     #def de rechargement
-    @constraint(model,[i = Jp], Re[i] <= sum(x[j,i] for j in 1:n) - (qS[i]-qL[i])/T) ;
+    @constraint(model,[i = Jp], Re[i] <= sum(x[j,i] for j in 1:n) - (qS[i]-qL[i])/TT) ;
     @constraint(model,[i = Jnonp2], Re[i] == 0);
     ## demande de i vers j pour yij
     @constraint(model,[i=1:n,j = Jnonp], Cs[j] <= Cs[i]-inst.nodes[j].demand*(1-x[i,j])+Q*(1-y[i,j]));
-
     ## ravitaillement des yij
     @constraint(model,[j = Jp], Cs[j] >= Q*Re[j]);
 
     #time windows
     #@constraint(model,[j = 1:n,i = 1:n,i!=j],  qL[j]+T*(1-x[i,j])>=qL[i]+inst.service_duration+inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx] );
-    @constraint(model,[j = 1:n,i = 1:n-1,i!=j],  qL[j]+T*(1-x[i,j])>=qL[i]+inst.service_duration+inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx] );
-    @constraint(model,[j = 1:n,i = 1:n-1,i!=j],  qS[j]+T*(1-y[i,j])>=qS[i]+inst.service_duration+inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx] );
-    @constraint(model,[j = 1:n],  qL[j]>=inst.service_duration+inst.nodes[j].TW_min)
-    @constraint(model,[j = 1:n],  qS[j]>=inst.service_duration+inst.nodes[j].TW_min)
+    @constraint(model,[j = 1:n,i = 1:n-1,i!=j],  qL[j]+TT*(1-x[i,j])>=qL[i]+inst.service_duration+inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx] );
+    @constraint(model,[j = 1:n,i = 1:n-1,i!=j],  qS[j]+TT*(1-y[i,j])>=qS[i]+inst.service_duration+inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx] );
+    @constraint(model,[j = 1:n],  qL[j]>=inst.service_duration+inst.nodes[j].TW_min+tmp_min)
+    @constraint(model,[j = 1:n],  qS[j]>=inst.service_duration+inst.nodes[j].TW_min+tmp_min)
     @constraint(model,[j = 1:n],  qL[j]<=inst.nodes[j].TW_max)
     @constraint(model,[j = 1:n],  qS[j]<=inst.nodes[j].TW_max)
 
@@ -269,7 +315,7 @@ function main()
           "R1-2-8.txt","R2-2-8.txt","R1-3-10.txt","R1-3-12.txt","R2-3-10.txt","R2-3-12.txt"]
 
     paramf = string(instdir,"parameters.txt")
-    instf =string(instdir,instNames[12])
+    instf =string(instdir,instNames[1])
     #instf =string(instdir,"instanceNantes.txt")
     matf =string(instdir,"distancematrix98.txt")
     inst,a = parseInstance(paramf,instf,matf)
