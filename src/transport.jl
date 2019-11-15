@@ -95,47 +95,20 @@ function get_max(inst::Instance)
     return tmp_max
 end
 
+
 function get_min(inst::Instance)
     n = size(inst.nodes)[1]
-    tmp_min = inst.dist_matrix[inst.nodes[1].vertex_idx,inst.nodes[2].vertex_idx]
+    T = inst.time_horizon
+    tmp_min = [Float64(T) for i in 1:n]
+    println(tmp_min)
     for i in 1:n
         for j in 1:n
-            if inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx]>0 && inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx]<tmp_min
+            if inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx]>0 && inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx]<tmp_min[i]
                 println(i)
-                tmp_min = inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx]
+                tmp_min[i] = inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx]
            end
         end
-    end
-    for j in 1:n
-        for i in 1:n
-            if inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx]>0 && inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx]<tmp_min
-                tmp_min = inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx]
-           end
-        end
-    end
 
-    return tmp_min
-end
-
-function get_min_park(inst::Instance,Jp)
-    n = size(inst.nodes)[1]
-    tmp_min = inst.dist_matrix[inst.nodes[1].vertex_idx,inst.nodes[Jp[1]].vertex_idx]
-    println(tmp_min)
-    for i in Jp
-        for j in 1:n
-
-            if !(j in Jp) &&inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx]>0 && inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx]<tmp_min
-                tmp_min = inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx]
-           end
-        end
-    end
-    for j in Jp
-        for i in 1:n
-
-            if !(j in Jp) &&inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx]>0 && inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx]<tmp_min
-                tmp_min = inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx]
-           end
-        end
     end
 
     return tmp_min
@@ -162,10 +135,6 @@ function buildTSP(inst::Instance,a)
 
     Jl,Js,Jp , Jnonp,Jnonp2,JnonpL, J= get_ensemble(inst)
     Jpp    =get_parking(inst,Jp,a)
-    tmp_min_park = get_min_park(inst,Jp)
-        println(Jpp)
-    println(tmp_min)
-    println(tmp_min_park)
 
     @variable(model, x[1:n,1:n] ,Bin);
     @variable(model, y[1:n,1:n] ,Bin);
@@ -209,8 +178,8 @@ function buildTSP(inst::Instance,a)
         @constraint(model,[i = jpp,j = jpp], y[i,j] == 0);
         @constraint(model,[i = jpp,j = jpp], x[i,j] == 0);
         for i in jpp
-            @constraint(model,[i2 in jpp; i<i2],qL[i]-inst.service_duration-tmp_min_park*2>=qL[i2]);
-            @constraint(model,[i2 in jpp; i<i2],qS[i]-inst.service_duration-tmp_min_park*2>=qS[i2]);
+            @constraint(model,[i2 in jpp; i<i2],qL[i]-inst.service_duration-tmp_min[i]*2>=qL[i2]);
+            @constraint(model,[i2 in jpp; i<i2],qS[i]-inst.service_duration-tmp_min[i]*2>=qS[i2]);
         end
     end
 
@@ -250,10 +219,17 @@ function buildTSP(inst::Instance,a)
 
     #time windows
     #@constraint(model,[j = 1:n,i = 1:n,i!=j],  qL[j]+T*(1-x[i,j])>=qL[i]+inst.service_duration+inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx] );
+<<<<<<< HEAD
     @constraint(model,[j = 2:n,i = 1:n-1,i!=j],  qL[j]+TT*(1-x[i,j])>=qL[i]+inst.service_duration+inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx] );
     @constraint(model,[j = 2:n,i = 1:n-1,i!=j],  qS[j]+TT*(1-y[i,j])>=qS[i]+inst.service_duration+inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx] );
     @constraint(model,[j = 1:n],  qL[j]>=inst.service_duration+inst.nodes[j].TW_min+tmp_min)
     @constraint(model,[j = 1:n],  qS[j]>=inst.service_duration+inst.nodes[j].TW_min+tmp_min)
+=======
+    @constraint(model,[j = 1:n,i = 1:n-1,i!=j],  qL[j]+TT*(1-x[i,j])>=qL[i]+inst.service_duration+inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx] );
+    @constraint(model,[j = 1:n,i = 1:n-1,i!=j],  qS[j]+TT*(1-y[i,j])>=qS[i]+inst.service_duration+inst.dist_matrix[inst.nodes[i].vertex_idx,inst.nodes[j].vertex_idx] );
+    @constraint(model,[j = 1:n],  qL[j]>=inst.service_duration+inst.nodes[j].TW_min+tmp_min[j])
+    @constraint(model,[j = 1:n],  qS[j]>=inst.service_duration+inst.nodes[j].TW_min+tmp_min[j])
+>>>>>>> e619b502cfcfc86211227dde5233391f45545fcf
     @constraint(model,[j = 1:n],  qL[j]<=inst.nodes[j].TW_max)
     @constraint(model,[j = 1:n],  qS[j]<=inst.nodes[j].TW_max)
 
@@ -298,6 +274,7 @@ function buildTSP(inst::Instance,a)
         println(" i : ",i," ql : ",ql[i])
 
     end=#
+<<<<<<< HEAD
     if termination_status(model)==MOI.INFEASIBLE
         println("INFEASIBLE")
         return [],[],0
@@ -306,6 +283,13 @@ function buildTSP(inst::Instance,a)
         cycley = cycle_solved(model,y,n)
         return cyclex,cycley, objective_value(model)
     end
+=======
+    cyclex = cycle_solved(model,x,n)
+    cycley = cycle_solved(model,y,n)
+    println(tmp_min)
+    return cyclex,cycley
+
+>>>>>>> e619b502cfcfc86211227dde5233391f45545fcf
 end # end buildTSP
 
 
@@ -315,8 +299,13 @@ function main()
     # Main program starting here
 
     # PARSE iNstance, parameters and distanceMatrix
+<<<<<<< HEAD
     instdir = "..\\Transport\\instances2019\\"
     outdir = "..\\Transport\\output\\"
+=======
+    instdir = "../instances2019/"
+    outdir = "../output/"
+>>>>>>> e619b502cfcfc86211227dde5233391f45545fcf
     instNames= ["C1-2-8.txt","C2-2-8.txt","C1-3-10.txt","C1-3-12.txt","C2-3-10.txt","C2-3-12.txt",
           "R1-2-8.txt","R2-2-8.txt","R1-3-10.txt","R1-3-12.txt","R2-3-10.txt","R2-3-12.txt"]
 
